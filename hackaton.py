@@ -28,6 +28,7 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
     print(df.dtypes)
     return df.dropna()  # You could replace this with more advanced imputation
 
+
 # 2. Linear Regression
 def perform_linear_regression(df: pd.DataFrame, target_col: str) -> RegressorMixin:
     X: pd.DataFrame = df.drop(columns=[target_col])
@@ -40,8 +41,10 @@ def perform_linear_regression(df: pd.DataFrame, target_col: str) -> RegressorMix
 
     print("\nLinear Regression:")
     print(f"R2 Score: {r2_score(y_test, y_pred):.3f}")
-    print(f"RMSE: {mean_squared_error(y_test, y_pred, squared=False):.3f}")
-    return model
+    print(f"RMSE: {mean_squared_error(y_test, y_pred):.3f}")
+    
+    return {"model": model, "y_test": y_test, "y_pred": y_pred}
+
 
 # 3. K-Nearest Neighbors Classifier
 def perform_knn(df: pd.DataFrame, target_col: str, k: int = 3) -> ClassifierMixin:
@@ -59,7 +62,12 @@ def perform_knn(df: pd.DataFrame, target_col: str, k: int = 3) -> ClassifierMixi
 
     print("\nKNN Classification:")
     print(classification_report(y_test, y_pred))
-    return model
+    print("\nConusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+
+    return {"model": model, "y_test": y_test, "y_pred": y_pred}
+
 
 # 4. Logistic Regression
 def perform_logistic_regression(df: pd.DataFrame, target_col: str) -> ClassifierMixin:
@@ -77,27 +85,50 @@ def perform_logistic_regression(df: pd.DataFrame, target_col: str) -> Classifier
 
     print("\nLogistic Regression:")
     print(classification_report(y_test, y_pred))
-    return model
+    print("\nConusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+    print("Accuracy:", accuracy_score(y_test, y_pred))
 
-# 5. LDA and QDA
-def perform_lda_qda(df: pd.DataFrame, target_col: str) -> Tuple[ClassifierMixin, ClassifierMixin]:
-    X: pd.DataFrame = df.drop(columns=[target_col])
-    y: pd.Series = df[target_col]
+    return {"model": model, "y_test": y_test, "y_pred": y_pred}
+
+
+def perform_lda(df: pd.DataFrame, target_col: str):
+    X = df.drop(columns=[target_col])
+    y = df[target_col]
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    print("\nLDA:")
-    lda = LinearDiscriminantAnalysis()
-    lda.fit(X_train, y_train)
-    lda_pred: np.ndarray = lda.predict(X_test)
-    print(classification_report(y_test, lda_pred))
+    model = LinearDiscriminantAnalysis(solver='lsqr', shrinkage='auto')  # auto regularization
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
 
-    print("\nQDA:")
-    qda = QuadraticDiscriminantAnalysis()
-    qda.fit(X_train, y_train)
-    qda_pred: np.ndarray = qda.predict(X_test)
-    print(classification_report(y_test, qda_pred))
+    print("LDA Classification Report:")
+    print(classification_report(y_test, y_pred))
+    print("\nConusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+    print("Accuracy:", accuracy_score(y_test, y_pred))
 
-    return lda, qda
+    return {"model": model, "y_test": y_test, "y_pred": y_pred}
+
+
+def perform_qda(df: pd.DataFrame, target_col: str):
+    X = df.drop(columns=[target_col])
+    y = df[target_col]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    model = QuadraticDiscriminantAnalysis(reg_param=0.1)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    print("QDA Classification Report:")
+    print(classification_report(y_test, y_pred))
+    print("\nConusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+
+    return {"model": model, "y_test": y_test, "y_pred": y_pred}
+
 
 # 6. Simple ML Model: Random Forest
 def perform_random_forest(df: pd.DataFrame, target_col: str) -> ClassifierMixin:
@@ -111,7 +142,12 @@ def perform_random_forest(df: pd.DataFrame, target_col: str) -> ClassifierMixin:
 
     print("\nRandom Forest Classifier:")
     print(classification_report(y_test, y_pred))
-    return model
+    print("\nConusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+    print("\nAccuracy:", accuracy_score(y_test, y_pred))
+
+    return {"model": model, "y_test": y_test, "y_pred": y_pred}
+
 
 # 7. Plot Results
 def plot_results(y_true: Union[pd.Series, np.ndarray], y_pred: Union[pd.Series, np.ndarray], task_type: str = 'classification') -> None:
@@ -131,15 +167,26 @@ def plot_results(y_true: Union[pd.Series, np.ndarray], y_pred: Union[pd.Series, 
         plt.show()
 
 
+
 cancer = load_breast_cancer(as_frame=True)
 df_cancer = cancer.frame
 
-df_clean = process_data(df_cancer)  # Drops NAs, prints types and missing data
+url = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv"
+df = pd.read_csv(url)
+print(df.head())
 
-target = 'target'
+df_clean = process_data(df)  # Drops NAs, prints types and missing data
 
-regression = perform_logistic_regression(df_clean, target_col=target)
+target = 'Outcome'
+
+
+linear_regression = perform_linear_regression(df_clean, target_col=target)
 knn = perform_knn(df_clean, target_col=target, k=5)
 random_forest = perform_random_forest(df_clean, target_col=target)
 logistic_regression = perform_logistic_regression(df_clean, target_col=target)
-lda =
+lda = perform_lda(df_clean, target_col=target)
+qda = perform_qda(df_clean, target_col=target)
+
+plot_results(random_forest["y_test"], random_forest["y_pred"])
+plot_results(lda["y_test"], lda["y_pred"])
+plot_results(knn["y_test"], knn["y_pred"])
