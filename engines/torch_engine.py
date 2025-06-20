@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import List, Dict, Any
 from pathlib import Path
+import copy
 
 import numpy as np
 import torch
@@ -102,7 +103,7 @@ def _fit_single_model(X_train: np.ndarray, y_train: np.ndarray) -> Dict[str, Any
         # early stopping
         if vloss[-1] < best_val - 1e-6:
             best_val = vloss[-1]
-            best_state = net.state_dict()
+            best_state = copy.deepcopy(net.state_dict())
             patience_ctr = 0
         else:
             patience_ctr += 1
