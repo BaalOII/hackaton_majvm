@@ -13,6 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 import importlib
+import argparse
 
 # reload config (snippet above) …
 import config as _cfg
@@ -23,10 +24,11 @@ config.settings = settings
 
 # — project imports —              # simple namespace from config.json
 from data.loader import load_data
+from data.exploring import run_data_exploration
 from engines.sklearn_engine import run as run_sklearn
 from engines.torch_engine import run_torch
 from reports.plots import make_all_figures
-from reports.report_generator import generate_report
+from reports.report_generator import generate_report, generate_data_report
 
 
 def run_pipeline():
@@ -74,5 +76,24 @@ def run_pipeline():
     return metrics_df
 
 
+def run_exploration():
+    """Run only the data exploration workflow."""
+    Path(settings.plot_dir).mkdir(parents=True, exist_ok=True)
+    X, y = load_data()
+    target = settings.target_col or "target"
+    df = X.copy()
+    df[target] = y
+    stats = run_data_exploration(df, target)
+    generate_data_report(stats, report_path=Path(settings.plot_dir) / "data_report.html")
+    return stats
+
+
 if __name__ == "__main__":
-    run_pipeline()
+    parser = argparse.ArgumentParser(description="Machine learning pipeline")
+    parser.add_argument("--explore-only", action="store_true", help="Run data exploration without training models")
+    args = parser.parse_args()
+
+    if args.explore_only:
+        run_exploration()
+    else:
+        run_pipeline()

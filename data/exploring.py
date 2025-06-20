@@ -4,8 +4,39 @@
 import pandas as pd
 import numpy as np
 import os
-import re 
+import re
 import matplotlib.pyplot as plt
+
+
+def run_data_exploration(df: pd.DataFrame, target: str) -> dict:
+    """High level helper to explore the dataset.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing the data including the target column.
+    target : str
+        Name of the target column.
+
+    Returns
+    -------
+    dict
+        Basic statistics collected during exploration.
+    """
+
+    nrow, ncol = get_size(df)
+    percent_of_nas = check_nas(df)
+    col_types = get_col_types(df)
+    summaries_strings(df, col_types)
+    summaries_intigers(df)
+    explore_df_target(df, target)
+
+    return {
+        "nrow": nrow,
+        "ncol": ncol,
+        "percent_of_nas": percent_of_nas,
+        "col_types": col_types,
+    }
 
 
 def handle_missing_values(df,method = 'mean'):
@@ -85,8 +116,6 @@ def transfrom_the_df(df,na_cods = None,method='drop',min_freq=.01):
     df = normalize_categorical(df,min_freq)
 
     return(df)
-
-a = transfrom_the_df(df,na_cods=["?"])
 
 
 
