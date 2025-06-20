@@ -24,9 +24,6 @@ cols_by_dtypes
 df.describe()
 # CHECK NAS
 
-
-
-
 def explore_the_df(df):
     # Local Variables 
     nrow,ncol = get_size(df)
@@ -36,9 +33,6 @@ def explore_the_df(df):
     col_types = get_col_types(df)
     # Explore the values 
     summaries_strings(df,col_types)
-    summaries_intigers(df)
-
-
       
     # Summary 
 

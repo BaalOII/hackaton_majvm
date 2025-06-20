@@ -7,6 +7,7 @@ main.py – thin orchestrator
 • Saves combined metrics CSV
 """
 
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,7 +32,7 @@ from reports.report_generator import generate_report
 def run_pipeline():
     # 1) guarantee plot directory exists ----------------------------
     Path(settings.plot_dir).mkdir(parents=True, exist_ok=True)
-
+    
     # 2) load data --------------------------------------------------
     X, y = load_data()                       # returns pandas objects
 
@@ -59,7 +60,7 @@ def run_pipeline():
     if not all_records:
         raise ValueError("No engines selected — update engines in config.json")
 
-    # 5) plots & report --------------------------------------------
+    
     fig_paths = make_all_figures(all_records, X_te, y_te)
     print("✓ Plots written:", fig_paths)
 
