@@ -73,7 +73,7 @@ def _fit_single_model(X_train: np.ndarray, y_train: np.ndarray) -> Dict[str, Any
     crit = nn.BCELoss()
 
     best_val = float("inf")
-    best_state = None
+    best_state = copy.deepcopy(net.state_dict())
     patience_ctr = 0
     tloss, vloss = [], []
 
@@ -125,8 +125,8 @@ def _cross_validate_torch(X: np.ndarray, y: np.ndarray) -> Dict[str, float]:
     accs, f1s, rocs = [], [], []
 
     for train_idx, val_idx in cv.split(X, y):
-        artefacts = _fit_single_model(X[train_idx], y[train_idx])
-        net, device = artefacts["model"], artefacts["device"]
+        artifacts = _fit_single_model(X[train_idx], y[train_idx])
+        net, device = artifacts["model"], artifacts["device"]
         with torch.no_grad():
             probs = net(torch.from_numpy(X[val_idx].astype(np.float32)).to(device)).cpu().numpy().ravel()
         preds = (probs >= 0.5).astype(int)
@@ -159,8 +159,8 @@ def run_torch(X_train, X_test, y_train, y_test) -> List[Dict[str, Any]]:  # noqa
         record.update(_cross_validate_torch(X_tr, y_tr))
 
     # 2) retrain on full training set ------------------------------
-    artefacts = _fit_single_model(X_tr, y_tr)
-    net, device = artefacts["model"], artefacts["device"]
+    artifacts = _fit_single_model(X_tr, y_tr)
+    net, device = artifacts["model"], artifacts["device"]
 
     with torch.no_grad():
         probs = net(torch.from_numpy(X_te.astype(np.float32)).to(device)).cpu().numpy().ravel()
@@ -171,8 +171,8 @@ def run_torch(X_train, X_test, y_train, y_test) -> List[Dict[str, Any]]:  # noqa
             "test_accuracy": accuracy_score(y_te, preds),
             "test_f1_weighted": f1_score(y_te, preds, average="weighted"),
             "test_roc_auc": roc_auc_score(y_te, probs),
-            "train_losses": artefacts["train_losses"],
-            "val_losses": artefacts["val_losses"],
+            "train_losses": artifacts["train_losses"],
+            "val_losses": artifacts["val_losses"],
             "probs": probs.tolist(),
             "preds": preds.tolist(),
         }
