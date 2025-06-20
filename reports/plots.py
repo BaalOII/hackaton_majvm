@@ -13,6 +13,7 @@ from typing import List, Dict, Any
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.preprocessing import label_binarize
 import numpy as np
 import config 
 
@@ -34,7 +35,19 @@ def _plot_confusion(y_true, y_pred, title: str, out_path: Path):
 
 
 def _plot_roc(y_true, y_score, title: str, out_path: Path):
-    fpr, tpr, _ = roc_curve(y_true, y_score)
+    y_t = np.asarray(y_true)
+    y_s = np.asarray(y_score)
+
+    if y_s.ndim == 1:
+        fpr, tpr, _ = roc_curve(y_t, y_s)
+    elif y_s.ndim == 2 and y_s.shape[1] == 1:
+        fpr, tpr, _ = roc_curve(y_t, y_s.ravel())
+    elif y_s.ndim == 2 and y_s.shape[1] == 2 and len(np.unique(y_t)) <= 2:
+        fpr, tpr, _ = roc_curve(y_t, y_s[:, 1])
+    else:
+        classes = np.unique(y_t)
+        y_bin = label_binarize(y_t, classes=classes)
+        fpr, tpr, _ = roc_curve(y_bin.ravel(), y_s.ravel())
     plt.figure(figsize=(4, 4))
     plt.plot(fpr, tpr, label=f"AUC = {auc(fpr, tpr):.2f}")
     plt.plot([0, 1], [0, 1], linestyle="--", color="grey")
@@ -83,7 +96,7 @@ def make_all_figures(records: List[Dict[str, Any]], X_test, y_test) -> Dict[str,
 
             # ROC only if scores available
             if hasattr(est, "predict_proba"):
-                y_score = est.predict_proba(X_test)[:, 1]
+                y_score = est.predict_proba(X_test)
             elif hasattr(est, "decision_function"):
                 y_score = est.decision_function(X_test)
             else:

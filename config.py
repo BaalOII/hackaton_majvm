@@ -31,7 +31,7 @@ _DEFAULTS = {
     "pca_variance": 0.95,
     "models_with_pca": ["logreg", "knn", "lda", "qda", "gnb", "svc"],
     "cv_folds": 5,
-    "scoring": ["accuracy", "roc_auc", "f1_weighted"],
+    "scoring": ["accuracy", "roc_auc_ovr", "f1_weighted"],
 
     # — engines to run —
     "engines": ["sklearn", "torch"],

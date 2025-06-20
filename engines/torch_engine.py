@@ -29,37 +29,38 @@ from config import settings
 # Simple MLP
 # ---------------------------------------------------------------------------
 class _MLP(nn.Module):
-    def __init__(self, input_dim: int, hidden1: int, hidden2: int, dropout: float):
+    def __init__(self, input_dim: int, hidden1: int, hidden2: int, dropout: float, n_classes: int):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, hidden1)
         self.d1 = nn.Dropout(dropout)
         self.fc2 = nn.Linear(hidden1, hidden2)
         self.d2 = nn.Dropout(dropout)
-        self.out = nn.Linear(hidden2, 1)
+        self.out = nn.Linear(hidden2, n_classes)
 
     def forward(self, x):  # type: ignore[override]
         x = F.relu(self.fc1(x))
         x = self.d1(x)
         x = F.relu(self.fc2(x))
         x = self.d2(x)
-        return torch.sigmoid(self.out(x))
+        return self.out(x)
 
 
 # ---------------------------------------------------------------------------
 # Training routine (with early stopping)
 # ---------------------------------------------------------------------------
 
-def _fit_single_model(X_train: np.ndarray, y_train: np.ndarray) -> Dict[str, Any]:
+def _fit_single_model(X_train: np.ndarray, y_train: np.ndarray, n_classes: int) -> Dict[str, Any]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net = _MLP(
         input_dim=X_train.shape[1],
         hidden1=settings.torch_hidden1,
         hidden2=settings.torch_hidden2,
         dropout=settings.torch_dropout,
+        n_classes=n_classes,
     ).to(device)
 
     X_t = torch.from_numpy(X_train.astype(np.float32))
-    y_t = torch.from_numpy(y_train.astype(np.float32)).view(-1, 1)
+    y_t = torch.from_numpy(y_train.astype(np.int64))
     ds = TensorDataset(X_t, y_t)
 
     val_size = int(len(ds) * settings.torch_val_split)
@@ -70,7 +71,7 @@ def _fit_single_model(X_train: np.ndarray, y_train: np.ndarray) -> Dict[str, Any
     loader_val = DataLoader(val_ds, batch_size=settings.torch_batch_size, shuffle=False)
 
     optim = torch.optim.Adam(net.parameters(), lr=settings.torch_lr)
-    crit = nn.BCELoss()
+    crit = nn.CrossEntropyLoss()
 
     best_val = float("inf")
     best_state = copy.deepcopy(net.state_dict())
@@ -84,8 +85,8 @@ def _fit_single_model(X_train: np.ndarray, y_train: np.ndarray) -> Dict[str, Any
         for xb, yb in loader_tr:
             xb, yb = xb.to(device), yb.to(device)
             optim.zero_grad()
-            preds = net(xb)
-            loss = crit(preds, yb)
+            logits = net(xb)
+            loss = crit(logits, yb)
             loss.backward()
             optim.step()
             run += loss.item() * xb.size(0)
@@ -120,19 +121,24 @@ def _fit_single_model(X_train: np.ndarray, y_train: np.ndarray) -> Dict[str, Any
 # Cross‑validation helper
 # ---------------------------------------------------------------------------
 
-def _cross_validate_torch(X: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+def _cross_validate_torch(X: np.ndarray, y: np.ndarray, n_classes: int) -> Dict[str, float]:
     cv = StratifiedKFold(n_splits=settings.torch_cv_folds, shuffle=True, random_state=settings.random_state)
     accs, f1s, rocs = [], [], []
 
     for train_idx, val_idx in cv.split(X, y):
-        artifacts = _fit_single_model(X[train_idx], y[train_idx])
+        artifacts = _fit_single_model(X[train_idx], y[train_idx], n_classes)
         net, device = artifacts["model"], artifacts["device"]
         with torch.no_grad():
-            probs = net(torch.from_numpy(X[val_idx].astype(np.float32)).to(device)).cpu().numpy().ravel()
-        preds = (probs >= 0.5).astype(int)
+            logits = net(torch.from_numpy(X[val_idx].astype(np.float32)).to(device))
+            probs = F.softmax(logits, dim=1).cpu().numpy()
+        preds = probs.argmax(axis=1)
         accs.append(accuracy_score(y[val_idx], preds))
         f1s.append(f1_score(y[val_idx], preds, average="weighted"))
-        rocs.append(roc_auc_score(y[val_idx], probs))
+        if n_classes > 2:
+            roc = roc_auc_score(y[val_idx], probs, multi_class="ovr")
+        else:
+            roc = roc_auc_score(y[val_idx], probs[:, 1])
+        rocs.append(roc)
 
     return {
         "cv_test_accuracy": float(np.mean(accs)),
@@ -149,28 +155,34 @@ def run_torch(X_train, X_test, y_train, y_test) -> List[Dict[str, Any]]:  # noqa
     """Train Torch MLP with CV and return a record list (one element)."""
     X_tr = np.asarray(X_train) if not isinstance(X_train, np.ndarray) else X_train
     X_te = np.asarray(X_test) if not isinstance(X_test, np.ndarray) else X_test
-    y_tr = np.asarray(y_train).astype(np.float32)
-    y_te = np.asarray(y_test).astype(np.float32)
+    y_tr = np.asarray(y_train).astype(np.int64)
+    y_te = np.asarray(y_test).astype(np.int64)
+    n_classes = len(np.unique(y_tr))
 
     record: Dict[str, Any] = {"model": "2-Layer Torch MLP"}
 
     # 1) cross‑validation ------------------------------------------
     if settings.torch_cv_folds > 1:
-        record.update(_cross_validate_torch(X_tr, y_tr))
+        record.update(_cross_validate_torch(X_tr, y_tr, n_classes))
 
     # 2) retrain on full training set ------------------------------
-    artifacts = _fit_single_model(X_tr, y_tr)
+    artifacts = _fit_single_model(X_tr, y_tr, n_classes)
     net, device = artifacts["model"], artifacts["device"]
 
     with torch.no_grad():
-        probs = net(torch.from_numpy(X_te.astype(np.float32)).to(device)).cpu().numpy().ravel()
-    preds = (probs >= 0.5).astype(int)
+        logits = net(torch.from_numpy(X_te.astype(np.float32)).to(device))
+        probs = F.softmax(logits, dim=1).cpu().numpy()
+    preds = probs.argmax(axis=1)
 
     record.update(
         {
             "test_accuracy": accuracy_score(y_te, preds),
             "test_f1_weighted": f1_score(y_te, preds, average="weighted"),
-            "test_roc_auc": roc_auc_score(y_te, probs),
+            "test_roc_auc": (
+                roc_auc_score(y_te, probs, multi_class="ovr")
+                if n_classes > 2
+                else roc_auc_score(y_te, probs[:, 1])
+            ),
             "train_losses": artifacts["train_losses"],
             "val_losses": artifacts["val_losses"],
             "probs": probs.tolist(),

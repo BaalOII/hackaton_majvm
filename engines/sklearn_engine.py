@@ -69,16 +69,26 @@ def _make_pipeline(model_cls, params) -> Pipeline:
 
 def _evaluate_cv(name: str, pipeline: Pipeline, X_tr, y_tr):
     cv = StratifiedKFold(settings.cv_folds, shuffle=True, random_state=settings.random_state)
+    scoring = list(settings.scoring)
+    n_classes = len(np.unique(y_tr))
+    if n_classes > 2:
+        scoring = [s if s != "roc_auc" else "roc_auc_ovr" for s in scoring]
+    else:
+        scoring = [s if s != "roc_auc_ovr" else "roc_auc" for s in scoring]
     scores = cross_validate(
         pipeline,
         X_tr,
         y_tr,
-        scoring=settings.scoring,
+        scoring=scoring,
         cv=cv,
         return_estimator=True,
         n_jobs=-1,
     )
     row = {f"cv_{k}": np.mean(v) for k, v in scores.items() if k.startswith("test_")}
+    if "cv_test_roc_auc_ovr" in row:
+        row["cv_test_roc_auc"] = row.pop("cv_test_roc_auc_ovr")
+    if "cv_test_roc_auc_ovo" in row:
+        row["cv_test_roc_auc"] = row.pop("cv_test_roc_auc_ovo")
     row["model"] = name
     # Keep last fitted estimator (already trained)
     row["estimator"] = scores["estimator"][-1]
@@ -92,13 +102,18 @@ def _evaluate_holdout(est, X_te, y_te):
         "test_f1_weighted": f1_score(y_te, preds, average="weighted"),
     }
     if hasattr(est, "predict_proba"):
-        y_score = est.predict_proba(X_te)[:, 1]
+        y_score = est.predict_proba(X_te)
     elif hasattr(est, "decision_function"):
         y_score = est.decision_function(X_te)
     else:
         y_score = None
     if y_score is not None:
-        res["test_roc_auc"] = roc_auc_score(y_te, y_score)
+        if np.ndim(y_score) > 1 and y_score.shape[1] > 1:
+            res["test_roc_auc"] = roc_auc_score(y_te, y_score, multi_class="ovr")
+        else:
+            if np.ndim(y_score) > 1:
+                y_score = y_score[:, 1]
+            res["test_roc_auc"] = roc_auc_score(y_te, y_score)
     return res
 
 # ---------------------------------------------------------------------------
