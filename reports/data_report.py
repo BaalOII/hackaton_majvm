@@ -42,10 +42,11 @@ def generate_data_report(
     plot_paths : dict
         Mapping of plot titles to saved image paths.
     report_path : str or Path, optional
-        Where to write the report. Defaults to ``plots/eda_report.html``.
+        Where to write the report. Defaults to
+        ``plots/<dataset>/eda/eda_report.html``.
     """
     if report_path is None:
-        report_path = Path(settings.plot_dir) / "eda_report.html"
+        report_path = Path(settings.plot_dir) / "eda" / "eda_report.html"
     else:
         report_path = Path(report_path)
 

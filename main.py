@@ -33,7 +33,9 @@ from reports.report_generator import generate_report, generate_data_report
 
 def run_pipeline():
     # 1) guarantee plot directory exists ----------------------------
-    Path(settings.plot_dir).mkdir(parents=True, exist_ok=True)
+    base = Path(settings.plot_dir)
+    model_dir = base / "models"
+    model_dir.mkdir(parents=True, exist_ok=True)
     
     # 2) load data --------------------------------------------------
     X, y = load_data()                       # returns pandas objects
@@ -67,24 +69,26 @@ def run_pipeline():
     print("✓ Plots written:", fig_paths)
 
     metrics_df = pd.DataFrame(all_records)
-    csv_path = Path(settings.plot_dir) / "combined_model_results.csv"
+    csv_path = model_dir / "combined_model_results.csv"
     metrics_df.to_csv(csv_path, index=False)
     print(f"✓ Metrics saved to {csv_path.resolve()}")
 
-    generate_report(metrics_df, fig_paths, report_path=Path(settings.plot_dir) / "report.html")
+    generate_report(metrics_df, fig_paths, report_path=model_dir / "report.html")
 
     return metrics_df
 
 
 def run_exploration():
     """Run only the data exploration workflow."""
-    Path(settings.plot_dir).mkdir(parents=True, exist_ok=True)
+    base = Path(settings.plot_dir)
+    eda_dir = base / "eda"
+    eda_dir.mkdir(parents=True, exist_ok=True)
     X, y = load_data()
     target = settings.target_col or "target"
     df = X.copy()
     df[target] = y
     stats = run_data_exploration(df, target)
-    generate_data_report(stats, report_path=Path(settings.plot_dir) / "data_report.html")
+    generate_data_report(stats, report_path=eda_dir / "data_report.html")
     return stats
 
 
