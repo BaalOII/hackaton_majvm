@@ -13,3 +13,5 @@ env/
 plots/
 
 .DS_Store
+
+.tests
