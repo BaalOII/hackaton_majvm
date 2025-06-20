@@ -13,7 +13,8 @@ from typing import List, Dict, Any
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_curve, auc
-from sklearn.preprocessing import label_binarize
+from sklearn.preprocessing import label_binarize, StandardScaler
+from sklearn.decomposition import PCA
 import numpy as np
 import config 
 
@@ -73,6 +74,27 @@ def _plot_loss_curve(train, val, title: str, out_path: Path):
     plt.close()
 
 
+def _plot_pca_variance(X, out_path: Path):
+    """Plot explained and cumulative variance for PCA."""
+    X_scaled = StandardScaler().fit_transform(X)
+    pca = PCA(random_state=config.settings.random_state).fit(X_scaled)
+    explained_var = pca.explained_variance_ratio_
+    cumulative_var = np.cumsum(explained_var)
+    n_components = np.argmax(cumulative_var >= config.settings.pca_variance) + 1
+
+    plt.figure(figsize=(6, 4))
+    plt.plot(range(1, len(explained_var) + 1), explained_var, marker="o", label="Explained Variance")
+    plt.plot(range(1, len(cumulative_var) + 1), cumulative_var, marker="s", label="Cumulative Variance")
+    plt.axhline(y=config.settings.pca_variance, color="red", linestyle="--")
+    plt.axvline(x=n_components, color="green", linestyle="--")
+    plt.legend()
+    plt.title("PCA Variance")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
+
+
 # ───────────────────────────── public API ─────────────────────────────────
 
 def make_all_figures(records: List[Dict[str, Any]], X_test, y_test) -> Dict[str, Dict[str, str]]:
@@ -81,6 +103,11 @@ def make_all_figures(records: List[Dict[str, Any]], X_test, y_test) -> Dict[str,
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     out: Dict[str, Dict[str, str]] = {}
+
+    # PCA variance plot using the provided feature matrix
+    pca_path = plot_dir / "pca_variance.png"
+    _plot_pca_variance(X_test, pca_path)
+    out["PCA variance"] = {"variance": str(pca_path)}
 
     for rec in records:
         name = rec.get("model", "unknown")
