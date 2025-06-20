@@ -28,7 +28,8 @@ from data.exploring import run_data_exploration
 from engines.sklearn_engine import run as run_sklearn
 from engines.torch_engine import run_torch
 from reports.plots import make_all_figures
-from reports.report_generator import generate_report, generate_data_report
+from reports.report_generator import generate_report
+from reports.data_report import generate_data_report
 
 
 def run_pipeline():
@@ -87,8 +88,8 @@ def run_exploration():
     target = settings.target_col or "target"
     df = X.copy()
     df[target] = y
-    stats = run_data_exploration(df, target)
-    generate_data_report(stats, report_path=eda_dir / "data_report.html")
+    stats, plot_paths = run_data_exploration(df, target, out_dir=eda_dir)
+    generate_data_report(stats, plot_paths, report_path=eda_dir / "eda_report.html")
     return stats
 
 

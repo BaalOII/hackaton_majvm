@@ -1,6 +1,9 @@
 #====================================#
 #LIBRARIES
 #====================================#
+from pathlib import Path
+from typing import Dict, Tuple, Any
+
 import pandas as pd
 import numpy as np
 import os
@@ -9,8 +12,13 @@ import matplotlib.pyplot as plt
 
 
 
-def run_data_exploration(df: pd.DataFrame, target: str) -> dict:
-    """High level helper to explore the dataset.
+def run_data_exploration(
+    df: pd.DataFrame,
+    target: str,
+    *,
+    out_dir: str | Path | None = None,
+) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    """Run all EDA routines and save results.
 
     Parameters
     ----------
@@ -18,26 +26,48 @@ def run_data_exploration(df: pd.DataFrame, target: str) -> dict:
         DataFrame containing the data including the target column.
     target : str
         Name of the target column.
+    out_dir : str or Path, optional
+        Directory where plots will be saved. Defaults to ``plots/eda``.
 
     Returns
     -------
-    dict
-        Basic statistics collected during exploration.
+    (dict, dict)
+        Mapping of collected statistics and mapping of plot titles to file
+        paths.
     """
 
-    nrow, ncol = get_size(df)
-    percent_of_nas = check_nas(df)
-    col_types = get_col_types(df)
-    summaries_strings(df, col_types)
-    summaries_intigers(df)
-    explore_df_target(df, target)
+    out = Path(out_dir) if out_dir is not None else Path("plots/eda")
+    out.mkdir(parents=True, exist_ok=True)
 
-    return {
-        "nrow": nrow,
-        "ncol": ncol,
-        "percent_of_nas": percent_of_nas,
-        "col_types": col_types,
-    }
+    stats: Dict[str, Any] = {}
+    plots: Dict[str, str] = {}
+
+    nrow, ncol = get_size(df)
+    stats["dataset shape"] = pd.Series({"rows": nrow, "cols": ncol})
+
+    percent_of_nas = check_nas(df)
+    if percent_of_nas is not None:
+        stats["missing values"] = percent_of_nas
+
+    col_types = get_col_types(df)
+    stats["column types"] = col_types
+
+    str_stats, str_plots = summaries_strings(df, col_types, out_dir=out)
+    for name, val in str_stats.items():
+        stats[name] = val
+    plots.update(str_plots)
+
+    num_stats, num_plots = summaries_intigers(df, out_dir=out)
+    if num_stats is not None:
+        stats["numeric summary"] = num_stats
+    plots.update(num_plots)
+
+    target_stats, target_plots = explore_df_target(df, target, out_dir=out)
+    for name, val in target_stats.items():
+        stats[name] = val
+    plots.update(target_plots)
+
+    return stats, plots
 
 def handle_missing_values(df,method = 'mean'):
     df_filled = df.copy()
@@ -145,19 +175,17 @@ def get_size(df):
     print(f'In data set you can find {ncol} columns and {nrow} rows')
     return(nrow,ncol)
 
-def summaries_strings(df, col_types):
-    """Print basic summaries and plots for string features.
+def summaries_strings(
+    df: pd.DataFrame,
+    col_types: Dict[str, list],
+    *,
+    out_dir: Path | None = None,
+) -> Tuple[Dict[str, pd.Series], Dict[str, str]]:
+    """Summaries and bar plots for string features.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame used for exploration.
-    col_types : dict
-        Mapping returned by ``get_col_types`` with dtypes as keys.
+    Returns dictionaries of value counts and saved plot paths.
     """
 
-    # Handle classic object dtype, the pandas ``string`` dtype as well
-    # as ``category`` columns which also hold textual values.
     string_columns = (
         col_types.get("object", [])
         + col_types.get("string", [])
@@ -166,12 +194,21 @@ def summaries_strings(df, col_types):
 
     if len(string_columns) == 0:
         print("No String Values to check")
-    else:
-        print("Exploring String Columns")
+        return {}, {}
 
-        plot_string_summary(df[string_columns])
-        df_with_others = change_label_of_rare(df[string_columns])
-        plot_string_summary(df_with_others)
+    print("Exploring String Columns")
+    counts = {col: df[col].value_counts() for col in string_columns}
+    plot_paths = plot_string_summary(df[string_columns], out_dir=out_dir)
+
+    df_with_others = change_label_of_rare(df[string_columns])
+    plot_paths.update(
+        {
+            f"{col}_others": p
+            for col, p in plot_string_summary(df_with_others, out_dir=out_dir).items()
+        }
+    )
+
+    return counts, plot_paths
 
     
 
@@ -186,67 +223,94 @@ def change_label_of_rare(df):
     return(df)
 
     
-def plot_string_summary(df):
-    num_cols = len(df.columns.to_list())
-    fig, axes = plt.subplots(nrows=num_cols, ncols=1, figsize=(10, 4 * num_cols))
+def plot_string_summary(df: pd.DataFrame, *, out_dir: Path | None = None) -> Dict[str, str]:
+    """Create bar plots for string columns and optionally save them."""
 
-    if num_cols == 1:
-        axes = [axes]  
-
-    for ax, col in zip(axes, df.columns.to_list()):
-        df[col].value_counts().plot(kind='bar', ax=ax)
-        ax.set_title(f"Frequency of different values: {col}")
-        ax.set_xlabel("Value")
-        ax.set_ylabel("Count")
-    #Display plots
-    plt.tight_layout()
-    plt.show()
+    plot_paths: Dict[str, str] = {}
+    for col in df.columns.to_list():
+        plt.figure(figsize=(6, 4))
+        df[col].value_counts().plot(kind="bar")
+        plt.title(f"Frequency of different values: {col}")
+        plt.xlabel("Value")
+        plt.ylabel("Count")
+        plt.tight_layout()
+        if out_dir is not None:
+            path = Path(out_dir) / f"string_{col}.png"
+            plt.savefig(path)
+            plot_paths[f"string_{col}"] = str(path)
+            plt.close()
+        else:
+            plt.show()
+    return plot_paths
     
 
-def summaries_intigers(df):
+def summaries_intigers(df: pd.DataFrame, *, out_dir: Path | None = None) -> Tuple[pd.DataFrame | None, Dict[str, str]]:
+    """Summarise numeric columns and generate diagnostic plots."""
 
-    
-    if len(df.select_dtypes(include=['number']).columns.to_list())==0:
-        print('No String Values to check')
-    else:
-        print("Exploring Numeric Columns")
+    if len(df.select_dtypes(include=["number"]).columns.to_list()) == 0:
+        print("No String Values to check")
+        return None, {}
 
-        df_num = df.select_dtypes(include=['number'])
-        summary_of_df = df_num.describe().T
-        print(f'Summary statistics of numeric columns')
-        print(summary_of_df)
+    print("Exploring Numeric Columns")
 
-        intiger_histograms(df_num)
-        cor_matrix(df_num)
-        box_plots(df_num)
-        
-    return()
+    df_num = df.select_dtypes(include=["number"])
+    summary_of_df = df_num.describe().T
+    print("Summary statistics of numeric columns")
+    print(summary_of_df)
 
-def intiger_histograms(df):
+    plot_paths: Dict[str, str] = {}
+    plot_paths.update(intiger_histograms(df_num, out_path=Path(out_dir) / "numeric_hist.png" if out_dir else None))
+    plot_paths.update(cor_matrix(df_num, out_path=Path(out_dir) / "correlation.png" if out_dir else None))
+    plot_paths.update(box_plots(df_num, out_dir=out_dir))
+
+    return summary_of_df, plot_paths
+
+def intiger_histograms(df: pd.DataFrame, *, out_path: Path | None = None) -> Dict[str, str]:
     df.hist(bins=30, figsize=(15, 10))
     plt.suptitle("Histograms of numerics")
     plt.tight_layout()
-    plt.show()
+    if out_path is not None:
+        plt.savefig(out_path)
+        plt.close()
+        return {"numeric_histograms": str(out_path)}
+    else:
+        plt.show()
+        return {}
 
-def cor_matrix(df):
-
+def cor_matrix(df: pd.DataFrame, *, out_path: Path | None = None) -> Dict[str, str]:
     corr = df.corr()
     print(corr)
     fig, ax = plt.subplots(figsize=(10, 8))
-    cax = ax.matshow(corr, cmap='coolwarm')
+    cax = ax.matshow(corr, cmap="coolwarm")
     plt.xticks(range(len(corr.columns)), corr.columns, rotation=90)
     plt.yticks(range(len(corr.columns)), corr.columns)
     fig.colorbar(cax)
     plt.title("Correlation", y=1.15)
-    plt.show()
+    plt.tight_layout()
+    if out_path is not None:
+        plt.savefig(out_path)
+        plt.close()
+        return {"correlation": str(out_path)}
+    else:
+        plt.show()
+        return {}
 
-def box_plots(df):
+def box_plots(df: pd.DataFrame, *, out_dir: Path | None = None) -> Dict[str, str]:
+    paths: Dict[str, str] = {}
     for col in df.columns:
         plt.figure(figsize=(6, 2))
         plt.boxplot(df[col].dropna(), vert=False)
         plt.title(f"Boxplot: {col}")
         plt.xlabel(col)
-        plt.show()
+        plt.tight_layout()
+        if out_dir is not None:
+            path = Path(out_dir) / f"box_{col}.png"
+            plt.savefig(path)
+            paths[f"box_{col}"] = str(path)
+            plt.close()
+        else:
+            plt.show()
+    return paths
 
 def check_nas(df):
     if ~( df.isnull().values.any()):
@@ -269,39 +333,57 @@ def get_col_types(df):
         print(column_types[i])
     return(column_types)
 
-def explore_df_target(df, target_col):
-    
+def explore_df_target(
+    df: pd.DataFrame,
+    target_col: str,
+    *,
+    out_dir: Path | None = None,
+) -> Tuple[Dict[str, pd.DataFrame], Dict[str, str]]:
+    """Explore relation between predictors and the target."""
+
     predictors = [col for col in df.columns if col != target_col]
-    
+    stats: Dict[str, pd.DataFrame] = {}
+    paths: Dict[str, str] = {}
+
     for col in predictors:
         print(f"Predictor vs {col}")
-        
+
         if pd.api.types.is_numeric_dtype(df[col]):
-            # descriptive stats in terms of predictor
-            print(df.groupby(target_col)[col].describe())
-            
-            # Boxplot
+            desc = df.groupby(target_col)[col].describe()
+            stats[f"{col}_by_{target_col}"] = desc
+
             df.boxplot(column=col, by=target_col, grid=False, figsize=(6, 4))
-            plt.title(f'{col} vs {target_col}')
-            
+            plt.title(f"{col} vs {target_col}")
             plt.xlabel(target_col)
             plt.ylabel(col)
-            plt.show()
-        
+            plt.tight_layout()
+            if out_dir is not None:
+                path = Path(out_dir) / f"{col}_vs_{target_col}.png"
+                plt.savefig(path)
+                paths[f"{col}_vs_{target_col}"] = str(path)
+                plt.close()
+            else:
+                plt.show()
+
         elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_categorical_dtype(df[col]):
-            # Table of cointegration
-            contingency = pd.crosstab(df[col], df[target_col], normalize='index')
-            print("Percent distribution of target in categories")
-            print(contingency.round(2))
-            
-            # Barplot
-            contingency.plot(kind='bar', stacked=True, figsize=(6, 4))
-            plt.title(f'{col} vs {target_col}')
+            contingency = pd.crosstab(df[col], df[target_col], normalize="index")
+            stats[f"{col}_by_{target_col}"] = contingency.round(2)
+
+            ax = contingency.plot(kind="bar", stacked=True, figsize=(6, 4))
+            plt.title(f"{col} vs {target_col}")
             plt.ylabel("Percent")
             plt.xlabel(col)
             plt.legend(title=target_col)
             plt.tight_layout()
-            plt.show()
+            if out_dir is not None:
+                path = Path(out_dir) / f"{col}_vs_{target_col}.png"
+                ax.get_figure().savefig(path)
+                paths[f"{col}_vs_{target_col}"] = str(path)
+                plt.close(ax.get_figure())
+            else:
+                plt.show()
+
+    return stats, paths
 
 def eksplore_regression(df, target_col):
     
