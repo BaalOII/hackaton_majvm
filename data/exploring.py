@@ -8,6 +8,7 @@ import re
 import matplotlib.pyplot as plt
 
 
+
 def run_data_exploration(df: pd.DataFrame, target: str) -> dict:
     """High level helper to explore the dataset.
 
@@ -37,7 +38,6 @@ def run_data_exploration(df: pd.DataFrame, target: str) -> dict:
         "percent_of_nas": percent_of_nas,
         "col_types": col_types,
     }
-
 
 def handle_missing_values(df,method = 'mean'):
     df_filled = df.copy()
@@ -92,7 +92,6 @@ def normalize_categorical(df, min_freq):
 
     return df_result
 
-
 def split_by_missing(df, custom_na):
     # Zamiana niestandardowych wartości na np.NaN
     df_clean = df.replace(custom_na, pd.NA)
@@ -117,8 +116,7 @@ def transfrom_the_df(df,na_cods = None,method='drop',min_freq=.01):
 
     return(df)
 
-
-
+  
 def explore_the_df(df,target):
     
     # Local Variables 
@@ -146,7 +144,6 @@ def get_size(df):
     ncol = df.shape[1] # define number of columns 
     print(f'In data set you can find {ncol} columns and {nrow} rows')
     return(nrow,ncol)
-
 
 def summaries_strings(df,col_types):
 
@@ -234,8 +231,6 @@ def box_plots(df):
         plt.xlabel(col)
         plt.show()
 
-
-
 def check_nas(df):
     if ~( df.isnull().values.any()):
         print('No obviously missing values')
@@ -245,7 +240,6 @@ def check_nas(df):
         print('Percentage of missing values')
         print(percent_of_nas)
         return(percent_of_nas)
-
 
 def get_col_types(df):
 
@@ -257,8 +251,6 @@ def get_col_types(df):
         print(f'Data set contains following {i} columns')
         print(column_types[i])
     return(column_types)
-
-
 
 def explore_df_target(df, target_col):
     
@@ -293,7 +285,6 @@ def explore_df_target(df, target_col):
             plt.legend(title=target_col)
             plt.tight_layout()
             plt.show()
-
 
 def eksplore_regression(df, target_col):
     
