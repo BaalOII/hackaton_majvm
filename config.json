@@ -7,7 +7,7 @@
 
 
   "cv_folds": 5,
-  "scoring": ["accuracy", "roc_auc", "f1_weighted"],
+  "scoring": ["accuracy", "roc_auc_ovr", "f1_weighted"],
 
   "engines": ["sklearn", "torch"],
 
