@@ -28,7 +28,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-
+import torch_runner
 # ------------------ CONFIGURATION ------------------ #
 @dataclass
 class Config:
