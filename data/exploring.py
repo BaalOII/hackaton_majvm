@@ -8,23 +8,90 @@ import re
 import matplotlib.pyplot as plt
 
 
+def handle_missing_values(df,method = 'mean'):
+    df_filled = df.copy()
 
-working_path = '/Users/justynakubot/Desktop/EDU/Hackaton/'
-file_name = 'adult_sal.csv'
-# If it needed set working dir 
-os.chdir(working_path)
+    if method == 'mean':
+        for col in df_filled.select_dtypes(include='number').columns:
+            df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
 
-df = pd.read_csv(file_name) # to change if format different than csv
+    elif method == 'median':
+        for col in df_filled.select_dtypes(include='number').columns:
+            df_filled[col] = df_filled[col].fillna(df_filled[col].median())
+
+    elif method == 'mode':
+        for col in df_filled.columns:
+            mode_val = df_filled[col].mode(dropna=True)
+            if not mode_val.empty:
+                df_filled[col] = df_filled[col].fillna(mode_val[0])
+
+    elif method == 'ffill':
+        df_filled = df_filled.fillna(method='ffill')
+
+    elif method == 'bfill':
+        df_filled = df_filled.fillna(method='bfill')
+
+    elif method == 'drop':
+        df_filled = df_filled.dropna()
+
+    else:
+        raise ValueError(f"Nieznana metoda: {method}. Wybierz z: 'mean', 'median', 'mode', 'ffill', 'bfill', 'drop'.")
+
+    return df_filled
+
+def normalize_categorical(df, min_freq):
+    
+    df_result = df.copy()
+
+    # Wybór kolumn tekstowych
+    string_cols = df_result.select_dtypes(include=['object', 'string']).columns
+
+    for col in string_cols:
+        # Zamiana na wielkie litery
+        df_result[col] = df_result[col].str.upper()
+
+        # Częstość wartości w kolumnie
+        value_counts = df_result[col].value_counts(normalize=True)
+
+        # Wartości poniżej progu częstości
+        rare_values = value_counts[value_counts < min_freq].index
+
+        # Zamiana rzadkich na 'OTHERS'
+        df_result[col] = df_result[col].apply(lambda x: 'OTHERS' if x in rare_values else x)
+
+    return df_result
 
 
-number_of_na = df.isnull().sum() # pd series
-cols_by_dtypes = df.dtypes.groupby(df.dtypes).groups # dictionary 
-cols_by_dtypes
+def split_by_missing(df, custom_na):
+    # Zamiana niestandardowych wartości na np.NaN
+    df_clean = df.replace(custom_na, pd.NA)
+    
+    # Wiersze niekompletne (z co najmniej jednym NA)
+    incomplete_rows = df_clean[df_clean.isna().any(axis=1)]
 
-df.describe()
-# CHECK NAS
+    # Wiersze kompletne (bez NA)
+    complete_rows = df_clean[df_clean.notna().all(axis=1)]
 
-def explore_the_df(df):
+    return incomplete_rows, complete_rows
+
+def transfrom_the_df(df,na_cods = None,method='drop',min_freq=.01):
+
+    # standarazie nas
+    if na_cods!=None:
+        incomplete_rows, complete_rows = split_by_missing(df,na_cods)
+        incomplete_rows = handle_missing_values(incomplete_rows,method)
+        df = pd.concat([complete_rows, incomplete_rows])
+
+    df = normalize_categorical(df,min_freq)
+
+    return(df)
+
+a = transfrom_the_df(df,na_cods=["?"])
+
+
+
+def explore_the_df(df,target):
+    
     # Local Variables 
     nrow,ncol = get_size(df)
     # Check nas 
@@ -33,6 +100,11 @@ def explore_the_df(df):
     col_types = get_col_types(df)
     # Explore the values 
     summaries_strings(df,col_types)
+    summaries_intigers(df)
+
+    # Final explore 
+    explore_df_target(df,target)
+
       
     # Summary 
 
@@ -116,7 +188,7 @@ def intiger_histograms(df):
 def cor_matrix(df):
 
     corr = df.corr()
-
+    print(corr)
     fig, ax = plt.subplots(figsize=(10, 8))
     cax = ax.matshow(corr, cmap='coolwarm')
     plt.xticks(range(len(corr.columns)), corr.columns, rotation=90)
@@ -159,90 +231,70 @@ def get_col_types(df):
 
 
 
-
-# DEAL WITH NAS
-
-# CHECK COLUMNS
-
-# GROUP COLUMNS
-
-# TRANSFORM STRINGS AND LOOK FOR UNIQUE VALUES
-
-# LOOK FOR DUPLICATES
-
-# TRANSFORM RARE VALUES INTO OTHERS
-
-# 
-
-
-
-df = pd.read_csv(file_name)
-
-df.head()
-
-df.isna().sum()
-
-
-
-df.info()
-
-df.dtypes
-
-### GRUPOWANIE KOLUMN
-
-#====================================#
-#PARAMETERS AND PATHS
-#====================================#
-do_save = False # Whenever you want to save outputs of the analysis 
-
-#====================================#
-#LOAD INPUTS
-#====================================#
-def input_load(file_name):
-
+def explore_df_target(df, target_col):
     
+    predictors = [col for col in df.columns if col != target_col]
     
+    for col in predictors:
+        print(f"Predictor vs {col}")
+        
+        if pd.api.types.is_numeric_dtype(df[col]):
+            # descriptive stats in terms of predictor
+            print(df.groupby(target_col)[col].describe())
+            
+            # Boxplot
+            df.boxplot(column=col, by=target_col, grid=False, figsize=(6, 4))
+            plt.title(f'{col} vs {target_col}')
+            
+            plt.xlabel(target_col)
+            plt.ylabel(col)
+            plt.show()
+        
+        elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_categorical_dtype(df[col]):
+            # Table of cointegration
+            contingency = pd.crosstab(df[col], df[target_col], normalize='index')
+            print("Percent distribution of target in categories")
+            print(contingency.round(2))
+            
+            # Barplot
+            contingency.plot(kind='bar', stacked=True, figsize=(6, 4))
+            plt.title(f'{col} vs {target_col}')
+            plt.ylabel("Percent")
+            plt.xlabel(col)
+            plt.legend(title=target_col)
+            plt.tight_layout()
+            plt.show()
+
+
+def eksplore_regression(df, target_col):
     
+    predictors = [col for col in df.columns if col != target_col]
 
+    for col in predictors:
+        print(f"\n📊 Variable: {col}")
+        
+        if pd.api.types.is_numeric_dtype(df[col]):
+            # Korelacja liniowa
+            corr = df[[col, target_col]].corr().iloc[0, 1]
+            print(f"Correlation: {round(corr, 3)}")
+            
+            # Wykres rozrzutu
+            plt.figure(figsize=(5, 4))
+            plt.scatter(df[col], df[target_col], alpha=0.6)
+            plt.title(f"{col} vs {target_col}\nCorrelation: {round(corr, 3)}")
+            plt.xlabel(col)
+            plt.ylabel(target_col)
+            plt.tight_layout()
+            plt.show()
 
+        elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_categorical_dtype(df[col]):
+            # Średnie wartości targetu w każdej kategorii
+            print(df.groupby(col)[target_col].describe())
 
-
-    return(df)
-    
-#====================================#
-#MANAGE
-#====================================#
-
-
-#====================================#
-#MODELING FUNCTIONS
-#====================================#
-
-#====================================#
-#OUTPUTS
-#====================================#
-
-
-
-#====================================#
-#FUNCTIONS USED TO PERFORM EACH COMPONENTS
-#====================================#
-
-
-
-
-
-#====================================#
-#LIBRARIES DATA EXPLORING
-#====================================#
-
-
-#====================================#
-#LIBRARIES INPUT PROCESING
-#====================================#
-
-
-
-#====================================#
-#LIBRARIES MODEL FITING
-#====================================#
+            # Wykres słupkowy średnich
+            df.groupby(col)[target_col].mean().sort_values().plot(kind='bar', figsize=(6, 4))
+            plt.title(f"Average {target_col} by {col}")
+            plt.ylabel(f"Average {target_col}")
+            plt.xlabel(col)
+            plt.tight_layout()
+            plt.show()
