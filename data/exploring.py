@@ -145,15 +145,27 @@ def get_size(df):
     print(f'In data set you can find {ncol} columns and {nrow} rows')
     return(nrow,ncol)
 
-def summaries_strings(df,col_types):
+def summaries_strings(df, col_types):
+    """Print basic summaries and plots for string features.
 
-    if len(col_types['object'])==0:
-        print('No String Values to check')
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame used for exploration.
+    col_types : dict
+        Mapping returned by ``get_col_types`` with dtypes as keys.
+    """
+
+    # Handle both classic object dtype and the pandas ``string`` dtype.
+    string_columns = col_types.get("object", []) + col_types.get("string", [])
+
+    if len(string_columns) == 0:
+        print("No String Values to check")
     else:
-        print('Exploring String Columns')
+        print("Exploring String Columns")
 
-        plot_string_summary(df[col_types['object']])
-        df_with_others = change_label_of_rare(df[col_types['object']])
+        plot_string_summary(df[string_columns])
+        df_with_others = change_label_of_rare(df[string_columns])
         plot_string_summary(df_with_others)
 
     
