@@ -43,3 +43,4 @@ After the pipeline finishes, an HTML report is created in
 `plots/report.html`. This report contains the metrics table and diagnostic
 figures for all models. If the exploration step was run beforehand, its report
 will also appear in the same folder.
+

@@ -10,10 +10,12 @@ from __future__ import annotations
 import base64
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
 import pandas as pd
 from config import settings
+
+__all__ = ["generate_report", "generate_data_report"]
 
 
 # ---------------------------------------------------------------------------
@@ -117,4 +119,40 @@ def generate_report(
 
     report_path.write_text(html, encoding="utf-8")
     print(f"✓ HTML report written to {report_path.resolve()}")
+    return report_path
+
+
+def generate_data_report(stats: Dict[str, Any], *, report_path: str | Path = None) -> Path:
+    """Generate a simple HTML report from ``run_data_exploration`` results."""
+    if report_path is None:
+        report_path = Path(settings.plot_dir) / "data_report.html"
+    else:
+        report_path = Path(report_path)
+
+    nrow = stats.get("nrow")
+    ncol = stats.get("ncol")
+    percent_of_nas = stats.get("percent_of_nas")
+    col_types = stats.get("col_types")
+
+    na_html = ""
+    if isinstance(percent_of_nas, pd.Series):
+        na_html = percent_of_nas.to_frame("percent").to_html(float_format="{:.2f}".format)
+
+    ct_html = ""
+    if isinstance(col_types, dict):
+        ct_html = "<ul>" + "".join(f"<li>{k}: {', '.join(v)}</li>" for k, v in col_types.items()) + "</ul>"
+
+    html = f"""
+    <html><head><title>Data Report</title></head><body>
+        <h1>Data Exploration Report</h1>
+        <p>Rows: {nrow}<br/>Columns: {ncol}</p>
+        <h2>Missing values</h2>
+        {na_html}
+        <h2>Column types</h2>
+        {ct_html}
+    </body></html>
+    """
+
+    report_path.write_text(html, encoding="utf-8")
+    print(f"✓ Data report written to {report_path.resolve()}")
     return report_path
