@@ -101,6 +101,7 @@ def _evaluate_holdout(est, X_te, y_te):
         "test_accuracy": accuracy_score(y_te, preds),
         "test_f1_weighted": f1_score(y_te, preds, average="weighted"),
     }
+    n_classes = len(np.unique(y_te))
     if hasattr(est, "predict_proba"):
         y_score = est.predict_proba(X_te)
     elif hasattr(est, "decision_function"):
@@ -108,12 +109,13 @@ def _evaluate_holdout(est, X_te, y_te):
     else:
         y_score = None
     if y_score is not None:
-        if np.ndim(y_score) > 1 and y_score.shape[1] > 1:
+        if n_classes > 2:
             res["test_roc_auc"] = roc_auc_score(y_te, y_score, multi_class="ovr")
         else:
-            if np.ndim(y_score) > 1:
-                y_score = y_score[:, 1]
-            res["test_roc_auc"] = roc_auc_score(y_te, y_score)
+            score = y_score[:, 1] if np.ndim(y_score) > 1 else y_score
+            res["test_roc_auc"] = roc_auc_score(y_te, score)
+    else:
+        res["test_roc_auc"] = np.nan
     return res
 
 # ---------------------------------------------------------------------------
