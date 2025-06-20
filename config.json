@@ -1,0 +1,15 @@
+{
+    "random_state": 42,
+    "test_size": 0.2,
+    "pca_variance": 0.95,
+    "cv_folds": 5,
+    "plot_dir": "plots",
+    "models_with_pca": [
+        "logisticregression",
+        "kneighborsclassifier",
+        "lineardiscriminantanalysis",
+        "quadraticdiscriminantanalysis",
+        "gaussiannb",
+        "svc"
+    ]
+}
