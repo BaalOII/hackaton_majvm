@@ -48,7 +48,7 @@ _DEFAULTS = {
     "torch_cv_folds": 5,
 
     # — dataset options —
-    #   breast_cancer | csv | parquet | url_csv | url_parquet
+    #   breast_cancer | csv | parquet
     "dataset_name": "breast_cancer",
     "csv_path": None,
     "parquet_path": None,
