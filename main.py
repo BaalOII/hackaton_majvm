@@ -1,51 +1,77 @@
-import os
+"""
+main.py – thin orchestrator
+• Reads global parameters from config.json via `config.settings`
+• Loads data with data.loader.load_data()
+• Runs the selected engines
+• Generates plots and an HTML report
+• Saves combined metrics CSV
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
 import pandas as pd
-from sklearn.datasets import load_breast_cancer
-from sklearn.model_selection import train_test_split
+import importlib
 
-from models.sklearn_runner import run_sklearn_models
-from models.torch_runner import TorchModelRunner
+# reload config (snippet above) …
+import config as _cfg
+_cfg = importlib.reload(_cfg)
+settings = _cfg.settings
+import config
+config.settings = settings
+
+# — project imports —              # simple namespace from config.json
+from data.loader import load_data
+from engines.sklearn_engine import run as run_sklearn
+from engines.torch_engine import run_torch
+from reports.plots import make_all_figures
 from reports.report_generator import generate_report
-from config import Config
 
-def main():
-    # Load config
-    config = Config.load()
-    os.makedirs(config.plot_dir, exist_ok=True)
 
-    # Load dataset
-    data = load_breast_cancer(as_frame=True)
-    df = data.frame
-    X = df.drop(columns='target')
-    y = df['target']
+def run_pipeline():
+    # 1) guarantee plot directory exists ----------------------------
+    Path(settings.plot_dir).mkdir(parents=True, exist_ok=True)
 
-    # Train/test split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=config.test_size, stratify=y, random_state=config.random_state
+    # 2) load data --------------------------------------------------
+    X, y = load_data()                       # returns pandas objects
+
+    # 3) train/test split ------------------------------------------
+    from sklearn.model_selection import train_test_split
+    X_tr, X_te, y_tr, y_te = train_test_split(
+        X,
+        y,
+        stratify=y,
+        test_size=settings.test_size,
+        random_state=settings.random_state,
     )
 
-    # Run sklearn models
-    print("\nRunning Scikit-learn models...")
-    sklearn_results = run_sklearn_models(X_train, X_test, y_train, y_test, config)
+    # 4) run engines -----------------------------------------------
+    all_records: list[dict] = []
 
-    # Run PyTorch model
-    print("\nRunning PyTorch model...")
-    torch_runner = TorchModelRunner(X_train, X_test, y_train, y_test, plot_dir=config.plot_dir)
-    torch_results = torch_runner.run()
+    if "sklearn" in settings.engines:
+        print("→ Running Sklearn engine")
+        all_records.extend(run_sklearn(X_tr, X_te, y_tr, y_te))
 
-    # Combine all results
-    all_results = sklearn_results.copy()
-    all_results.update(torch_results)
+    if "torch" in settings.engines:
+        print("→ Running Torch engine")
+        all_records.extend(run_torch(X_tr, X_te, y_tr, y_te))
 
-    # Save summary CSV
-    results_df = pd.DataFrame(all_results).T.sort_values(by="ROC AUC Mean", ascending=False)
-    results_csv_path = os.path.join(config.plot_dir, "combined_model_results.csv")
-    results_df.to_csv(results_csv_path)
-    print(f"\nResults saved to {results_csv_path}")
+    if not all_records:
+        raise ValueError("No engines selected — update engines in config.json")
 
-    # Generate report
-    report_path = os.path.join("reports", "report.html")
-    generate_report(all_results, plot_dir=config.plot_dir, report_path=report_path)
+    # 5) plots & report --------------------------------------------
+    fig_paths = make_all_figures(all_records, X_te, y_te)
+    print("✓ Plots written:", fig_paths)
+
+    metrics_df = pd.DataFrame(all_records)
+    csv_path = Path(settings.plot_dir) / "combined_model_results.csv"
+    metrics_df.to_csv(csv_path, index=False)
+    print(f"✓ Metrics saved to {csv_path.resolve()}")
+
+    generate_report(metrics_df, fig_paths, report_path=Path(settings.plot_dir) / "report.html")
+
+    return metrics_df
+
 
 if __name__ == "__main__":
-    main()
+    run_pipeline()

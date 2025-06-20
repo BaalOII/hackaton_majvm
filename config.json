@@ -1,15 +1,76 @@
 {
-    "random_state": 42,
-    "test_size": 0.2,
-    "pca_variance": 0.95,
-    "cv_folds": 5,
-    "plot_dir": "plots",
-    "models_with_pca": [
-        "logisticregression",
-        "kneighborsclassifier",
-        "lineardiscriminantanalysis",
-        "quadraticdiscriminantanalysis",
-        "gaussiannb",
-        "svc"
-    ]
+  "random_state": 42,
+  "test_size": 0.2,
+  "plot_dir": "plots/breast_cancer",
+
+  "pca_variance": 0.95,
+
+
+  "cv_folds": 5,
+  "scoring": ["accuracy", "roc_auc", "f1_weighted"],
+
+  "engines": ["sklearn", "torch"],
+
+  "sklearn_models": [
+    {
+      "tag": "LogisticRegression",
+      "class": "sklearn.linear_model.LogisticRegression",
+      "params": {"max_iter": 1000, "class_weight": "balanced"}
+    },
+    {
+      "tag": "KNeighborsClassifier",
+      "class": "sklearn.neighbors.KNeighborsClassifier",
+      "params": {}
+    },
+    {
+      "tag": "RandomForestClassifier",
+      "class": "sklearn.ensemble.RandomForestClassifier",
+      "params": {"n_estimators": 200, "class_weight": "balanced"}
+    },
+    {
+      "tag": "LinearDiscriminantAnalysis",
+      "class": "sklearn.discriminant_analysis.LinearDiscriminantAnalysis",
+      "params": {"solver": "lsqr", "shrinkage": "auto"}
+    },
+    {
+      "tag": "QuadraticDiscriminantAnalysis",
+      "class": "sklearn.discriminant_analysis.QuadraticDiscriminantAnalysis",
+      "params": {"reg_param": 0.1}
+    },
+    {
+      "tag": "GaussianNB",
+      "class": "sklearn.naive_bayes.GaussianNB",
+      "params": {}
+    },
+    {
+      "tag": "SVC",
+      "class": "sklearn.svm.SVC",
+      "params": {"kernel": "rbf", "probability": true}
+    }
+  ],
+
+  "models_with_pca": [
+    "LogisticRegression",
+    "KNeighborsClassifier",
+    "LinearDiscriminantAnalysis",
+    "QuadraticDiscriminantAnalysis",
+    "GaussianNB",
+    "SVC"
+  ],
+
+  "torch_epochs": 50,
+  "torch_lr": 0.001,
+  "torch_batch_size": 32,
+  "torch_dropout": 0.3,
+  "torch_hidden1": 64,
+  "torch_hidden2": 32,
+  "torch_patience": 7,
+  "torch_val_split": 0.2,
+  "torch_cv_folds": 5,
+
+  "dataset_name": "breast_cancer",
+  "csv_path": null,
+  "parquet_path": null,
+  "url": null,
+  "target_col": null
 }
