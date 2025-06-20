@@ -12,3 +12,4 @@ env/
 # Project-specific
 plots/
 
+.DS_Store
