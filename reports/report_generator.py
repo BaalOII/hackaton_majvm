@@ -49,12 +49,13 @@ def generate_report(
     fig_paths : dict
         Nested mapping from `make_all_figures()` → {model: {plot_type: path}}.
     report_path : str or Path
-        Where to write the HTML file.  Defaults to ``plots/report.html``.
+        Where to write the HTML file.  Defaults to
+        ``plots/<dataset>/models/report.html``.
     drop_cols : list[str], optional
         Extra columns to drop from the metrics table.
     """
     if report_path is None:
-        report_path = Path(settings.plot_dir) / "report.html"
+        report_path = Path(settings.plot_dir) / "models" / "report.html"
     else:
         report_path = Path(report_path)
 
@@ -123,9 +124,18 @@ def generate_report(
 
 
 def generate_data_report(stats: Dict[str, Any], *, report_path: str | Path = None) -> Path:
-    """Generate a simple HTML report from ``run_data_exploration`` results."""
+    """Generate a simple HTML report from ``run_data_exploration`` results.
+
+    Parameters
+    ----------
+    stats : dict
+        Mapping of collected statistics to values.
+    report_path : str or Path, optional
+        Where to write the HTML file. Defaults to
+        ``plots/<dataset>/eda/data_report.html``.
+    """
     if report_path is None:
-        report_path = Path(settings.plot_dir) / "data_report.html"
+        report_path = Path(settings.plot_dir) / "eda" / "data_report.html"
     else:
         report_path = Path(report_path)
 

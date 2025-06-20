@@ -20,7 +20,7 @@ This project contains a simple machine learning workflow with optional data expl
 The `data/exploring.py` module provides helper functions for inspecting a
 dataset (missing values, categorical normalisation, etc.). Running it will
 produce plots and a short text summary. The resulting HTML file is placed in the
-`plots` directory.
+`plots/eda` directory under the dataset-specific folder.
 
 Trigger the exploration report with:
 ```bash
@@ -34,13 +34,13 @@ metrics:
 ```bash
 python main.py
 ```
-Results are written under `plots/` along with an HTML report summarising
-scores and figures.
+Results are written under `plots/<dataset>/models` along with an HTML report
+summarising scores and figures.
 
 ## Generating reports
 
 After the pipeline finishes, an HTML report is created in
-`plots/report.html`. This report contains the metrics table and diagnostic
-figures for all models. If the exploration step was run beforehand, its report
-will also appear in the same folder.
+`plots/<dataset>/models/report.html`. This report contains the metrics table and
+diagnostic figures for all models. If the exploration step was run beforehand,
+its report appears in `plots/<dataset>/eda/`.
 
