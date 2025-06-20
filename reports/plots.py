@@ -2,7 +2,7 @@
 
 Generate diagnostic figures (confusion matrix, ROC curve, loss curve) for
 both scikit‑learn and Torch engines.  All plots are written to
-``settings.plot_dir`` and a nested dict of filepaths is returned so the
+``settings.plot_dir/models`` and a nested dict of filepaths is returned so the
 report layer can embed them.
 """
 from __future__ import annotations
@@ -99,7 +99,7 @@ def _plot_pca_variance(X, out_path: Path):
 
 def make_all_figures(records: List[Dict[str, Any]], X_test, y_test) -> Dict[str, Dict[str, str]]:
     """Create plots for every model record and return their paths."""
-    plot_dir = Path(config.settings.plot_dir)   # always fresh
+    plot_dir = Path(config.settings.plot_dir) / "models"  # always fresh
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     out: Dict[str, Dict[str, str]] = {}
