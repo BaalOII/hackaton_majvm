@@ -156,8 +156,13 @@ def summaries_strings(df, col_types):
         Mapping returned by ``get_col_types`` with dtypes as keys.
     """
 
-    # Handle both classic object dtype and the pandas ``string`` dtype.
-    string_columns = col_types.get("object", []) + col_types.get("string", [])
+    # Handle classic object dtype, the pandas ``string`` dtype as well
+    # as ``category`` columns which also hold textual values.
+    string_columns = (
+        col_types.get("object", [])
+        + col_types.get("string", [])
+        + col_types.get("category", [])
+    )
 
     if len(string_columns) == 0:
         print("No String Values to check")
