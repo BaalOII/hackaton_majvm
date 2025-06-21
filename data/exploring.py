@@ -3,10 +3,11 @@
 #====================================#
 import pandas as pd
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-from sklearn.datasets import load_breast_cancer
-data = load_breast_cancer(as_frame=True)
-df = data.frame
+import config
+
+EDA_DIR = Path(config.settings.plot_dir) / "eda"
 
 
 def normalize_categorical(df, min_freq):
@@ -87,11 +88,7 @@ def transfrom_the_df(df,na_cods = None,method='drop',min_freq=.01):
 
     df = normalize_categorical(df,min_freq)
 
-    return(df)
-
-
-
-a = transfrom_the_df(df,na_cods=["?"])
+    return df
 
 
 def summaries_strings(df,col_types):
@@ -138,91 +135,106 @@ def get_size(df):
     return(nrow,ncol)
     
 
-def intiger_histograms(df):
+def intiger_histograms(df, out_path: Path = EDA_DIR / "histograms.png"):
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     df.hist(bins=30, figsize=(15, 10))
     plt.suptitle("Histograms of numerics")
     plt.tight_layout()
-    plt.show()
+    plt.savefig(out_path)
+    plt.close()
+    return out_path
 
 
-def cor_matrix(df):
-
+def cor_matrix(df, out_path: Path = EDA_DIR / "correlation_matrix.png"):
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     corr = df.corr()
-    print(corr)
+    corr.to_csv(out_path.with_suffix(".csv"))
     fig, ax = plt.subplots(figsize=(10, 8))
-    cax = ax.matshow(corr, cmap='coolwarm')
+    cax = ax.matshow(corr, cmap="coolwarm")
     plt.xticks(range(len(corr.columns)), corr.columns, rotation=90)
     plt.yticks(range(len(corr.columns)), corr.columns)
     fig.colorbar(cax)
     plt.title("Correlation", y=1.15)
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+    return out_path
 
 
-def box_plots(df):
+def box_plots(df, out_dir: Path = EDA_DIR):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
     for col in df.columns:
+        path = out_dir / f"boxplot_{col}.png"
         plt.figure(figsize=(6, 2))
         plt.boxplot(df[col].dropna(), vert=False)
         plt.title(f"Boxplot: {col}")
         plt.xlabel(col)
-        plt.show()
+        plt.tight_layout()
+        plt.savefig(path)
+        plt.close()
+        paths.append(path)
+    return paths
 
 
-def summaries_intigers(df):
+def summaries_intigers(df, out_dir: Path = EDA_DIR):
+    if len(df.select_dtypes(include=["number"]).columns.to_list()) == 0:
+        print("No String Values to check")
+        return None
 
-    
-    if len(df.select_dtypes(include=['number']).columns.to_list())==0:
-        print('No String Values to check')
-    else:
-        print("Exploring Numeric Columns")
+    print("Exploring Numeric Columns")
 
-        df_num = df.select_dtypes(include=['number'])
-        summary_of_df = df_num.describe().T
-        print(f'Summary statistics of numeric columns')
-        print(summary_of_df)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    df_num = df.select_dtypes(include=["number"])
+    summary_of_df = df_num.describe().T
+    print("Summary statistics of numeric columns")
+    print(summary_of_df)
 
-        intiger_histograms(df_num)
-        cor_matrix(df_num)
-        box_plots(df_num)
-        
-    return()
+    summary_path = out_dir / "numeric_summary.csv"
+    summary_of_df.to_csv(summary_path)
+
+    intiger_histograms(df_num, out_dir / "histograms.png")
+    cor_matrix(df_num, out_dir / "correlation_matrix.png")
+    box_plots(df_num, out_dir)
+
+    return summary_of_df
 
 
-def explore_df_target(df, target_col):
-    
-    predictors = [col for col in df.columns if col != target_col]
-    
+def explore_df_target(df, target_col, out_dir: Path = EDA_DIR):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    predictors = [c for c in df.columns if c != target_col]
+
     for col in predictors:
         print(f"Predictor vs {col}")
-        
+
         if pd.api.types.is_numeric_dtype(df[col]):
-            # descriptive stats in terms of predictor
-            print(df.groupby(target_col)[col].describe())
-            
-            # Boxplot
+            stats = df.groupby(target_col)[col].describe()
+            stats_path = out_dir / f"{col}_by_{target_col}.csv"
+            stats.to_csv(stats_path)
+
             df.boxplot(column=col, by=target_col, grid=False, figsize=(6, 4))
-            plt.title(f'{col} vs {target_col}')
-            
+            plt.title(f"{col} vs {target_col}")
             plt.xlabel(target_col)
             plt.ylabel(col)
-            plt.show()
-        
+            plt.tight_layout()
+            plt.savefig(out_dir / f"{col}_by_{target_col}.png")
+            plt.close()
+
         elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_categorical_dtype(df[col]):
-            # Table of cointegration
-            contingency = pd.crosstab(df[col], df[target_col], normalize='index')
-            print("Percent distribution of target in categories")
-            print(contingency.round(2))
-            
-            # Barplot
-            contingency.plot(kind='bar', stacked=True, figsize=(6, 4))
-            plt.title(f'{col} vs {target_col}')
+            contingency = pd.crosstab(df[col], df[target_col], normalize="index")
+            contingency.round(2).to_csv(out_dir / f"{col}_by_{target_col}.csv")
+
+            contingency.plot(kind="bar", stacked=True, figsize=(6, 4))
+            plt.title(f"{col} vs {target_col}")
             plt.ylabel("Percent")
             plt.xlabel(col)
             plt.legend(title=target_col)
             plt.tight_layout()
-            plt.show()
+            plt.savefig(out_dir / f"{col}_by_{target_col}.png")
+            plt.close()
 
 
-def explore_the_df(df,target):
+def explore_the_df(df, target, out_dir: Path = EDA_DIR):
     
     # Local Variables 
     nrow,ncol = get_size(df)
@@ -233,18 +245,15 @@ def explore_the_df(df,target):
     # Explore the values
     summaries_strings(df,col_types)
 
-    summaries_intigers(df)
+    summaries_intigers(df, out_dir)
 
     # Final explore 
-    explore_df_target(df,target)
+    explore_df_target(df, target, out_dir)
 
       
     # Summary 
 
-    return(df,nrow,ncol,percent_of_nas,col_types)
-
-
-b, c, d, e, f = explore_the_df(df, "target") # this except b to be saved
+    return df, nrow, ncol, percent_of_nas, col_types
 
 
 
@@ -274,51 +283,38 @@ def change_label_of_rare(df):
 #     plt.tight_layout()
 #     plt.show()
     
-# plot_string_summary(df) # this to be saved 
+# plot_string_summary(df) # this to be saved
 
 
-
-
-summaries_intigers(df)  # plots generated by this to be saved
-
-
-
-
-explore_df_target(df, "target") # plots generated by this to be saved 
-
-
-def eksplore_regression(df, target_col):
-    
+def eksplore_regression(df, target_col, out_dir: Path = EDA_DIR):
+    out_dir.mkdir(parents=True, exist_ok=True)
     predictors = [col for col in df.columns if col != target_col]
 
     for col in predictors:
         print(f"\n📊 Variable: {col}")
-        
+
         if pd.api.types.is_numeric_dtype(df[col]):
-            # Korelacja liniowa
             corr = df[[col, target_col]].corr().iloc[0, 1]
             print(f"Correlation: {round(corr, 3)}")
-            
-            # Wykres rozrzutu
+
             plt.figure(figsize=(5, 4))
             plt.scatter(df[col], df[target_col], alpha=0.6)
             plt.title(f"{col} vs {target_col}\nCorrelation: {round(corr, 3)}")
             plt.xlabel(col)
             plt.ylabel(target_col)
             plt.tight_layout()
-            plt.show()
+            plt.savefig(out_dir / f"scatter_{col}_vs_{target_col}.png")
+            plt.close()
 
         elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_categorical_dtype(df[col]):
-            # Średnie wartości targetu w każdej kategorii
-            print(df.groupby(col)[target_col].describe())
+            desc = df.groupby(col)[target_col].describe()
+            desc.to_csv(out_dir / f"{col}_stats.csv")
 
-            # Wykres słupkowy średnich
-            df.groupby(col)[target_col].mean().sort_values().plot(kind='bar', figsize=(6, 4))
+            df.groupby(col)[target_col].mean().sort_values().plot(kind="bar", figsize=(6, 4))
             plt.title(f"Average {target_col} by {col}")
             plt.ylabel(f"Average {target_col}")
             plt.xlabel(col)
             plt.tight_layout()
-            plt.show()
-
-eksplore_regression(df, "target") # plots generated by this to be saved 
+            plt.savefig(out_dir / f"avg_{target_col}_by_{col}.png")
+            plt.close()
 

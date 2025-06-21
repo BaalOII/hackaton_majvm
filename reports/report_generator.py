@@ -37,6 +37,7 @@ def generate_report(
     *,
     report_path: str | Path = None,
     drop_cols: List[str] | None = None,
+    eda_dir: str | Path | None = None,
 ) -> Path:
     """Generate a self‑contained HTML report.
 
@@ -55,6 +56,11 @@ def generate_report(
         report_path = Path(settings.plot_dir) / "report.html"
     else:
         report_path = Path(report_path)
+
+    if eda_dir is None:
+        eda_dir = Path(settings.plot_dir) / "eda"
+    else:
+        eda_dir = Path(eda_dir)
 
     # ---- tidy metrics table ---------------------------------------
     non_scalar_cols = {
@@ -95,6 +101,17 @@ def generate_report(
         imgs = "<br/>".join(_inline_png(Path(p)) for p in paths.values())
         fig_rows.append(f"<tr><td><b>{model}</b></td><td>{imgs}</td></tr>")
 
+    # ---- EDA assets -----------------------------------------------
+    eda_imgs = []
+    eda_tables = []
+    if eda_dir.exists():
+        for p in sorted(eda_dir.glob("*.png")):
+            eda_imgs.append(_inline_png(p))
+        for csv in sorted(eda_dir.glob("*.csv")):
+            df_csv = pd.read_csv(csv)
+            table_html = df_csv.to_html(index=False, float_format="{:.3f}".format, border=0)
+            eda_tables.append(f"<h3>{csv.name}</h3>{table_html}")
+
     # ---- assemble HTML --------------------------------------------
     html = f"""
     <html><head>
@@ -112,6 +129,9 @@ def generate_report(
         {metrics_html}
         <h2>Figures</h2>
         <table border="0">{''.join(fig_rows)}</table>
+        <h2>EDA</h2>
+        {''.join(eda_imgs)}
+        {''.join(eda_tables)}
     </body></html>
     """
 
