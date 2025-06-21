@@ -2,10 +2,36 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import List
+
+from typing import List, Tuple
+
 
 import pandas as pd
 from config import settings
+
+
+__all__ = ["gather_eda_assets", "generate_eda_report"]
+
+
+def gather_eda_assets(eda_dir: str | Path | None = None) -> Tuple[List[str], List[str]]:
+    """Return lists of inline PNG tags and HTML tables stored in ``eda_dir``."""
+    if eda_dir is None:
+        eda_dir = Path(settings.plot_dir) / "eda"
+    else:
+        eda_dir = Path(eda_dir)
+
+    imgs: List[str] = []
+    tables: List[str] = []
+    if eda_dir.exists():
+        for p in sorted(eda_dir.glob("*.png")):
+            imgs.append(_inline_png(p))
+        for csv in sorted(eda_dir.glob("*.csv")):
+            df_csv = pd.read_csv(csv)
+            table_html = df_csv.to_html(index=False, float_format="{:.3f}".format, border=0)
+            tables.append(f"<h3>{csv.name}</h3>{table_html}")
+
+    return imgs, tables
+
 
 
 def _inline_png(path: Path, width: str = "420px") -> str:
@@ -30,15 +56,9 @@ def generate_eda_report(
     else:
         report_path = Path(report_path)
 
-    imgs: List[str] = []
-    tables: List[str] = []
-    if eda_dir.exists():
-        for p in sorted(eda_dir.glob("*.png")):
-            imgs.append(_inline_png(p))
-        for csv in sorted(eda_dir.glob("*.csv")):
-            df_csv = pd.read_csv(csv)
-            table_html = df_csv.to_html(index=False, float_format="{:.3f}".format, border=0)
-            tables.append(f"<h3>{csv.name}</h3>{table_html}")
+
+    imgs, tables = gather_eda_assets(eda_dir)
+
 
     html = f"""
     <html><head>

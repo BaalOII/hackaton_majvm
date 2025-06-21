@@ -14,6 +14,7 @@ from typing import Dict, List
 
 import pandas as pd
 from config import settings
+from .eda_report_generator import gather_eda_assets
 
 
 # ---------------------------------------------------------------------------
@@ -102,15 +103,11 @@ def generate_report(
         fig_rows.append(f"<tr><td><b>{model}</b></td><td>{imgs}</td></tr>")
 
     # ---- EDA assets -----------------------------------------------
-    eda_imgs = []
-    eda_tables = []
-    if eda_dir.exists():
-        for p in sorted(eda_dir.glob("*.png")):
-            eda_imgs.append(_inline_png(p))
-        for csv in sorted(eda_dir.glob("*.csv")):
-            df_csv = pd.read_csv(csv)
-            table_html = df_csv.to_html(index=False, float_format="{:.3f}".format, border=0)
-            eda_tables.append(f"<h3>{csv.name}</h3>{table_html}")
+    eda_imgs, eda_tables = gather_eda_assets(eda_dir)
+    eda_html = ""
+    if eda_imgs or eda_tables:
+        eda_html = "<h2>EDA</h2>" + "".join(eda_imgs) + "".join(eda_tables)
+
 
     # ---- assemble HTML --------------------------------------------
     html = f"""
@@ -129,9 +126,9 @@ def generate_report(
         {metrics_html}
         <h2>Figures</h2>
         <table border="0">{''.join(fig_rows)}</table>
-        <h2>EDA</h2>
-        {''.join(eda_imgs)}
-        {''.join(eda_tables)}
+
+        {eda_html}
+
     </body></html>
     """
 
