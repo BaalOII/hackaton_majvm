@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
+
 from typing import List, Tuple
+
 
 import pandas as pd
 from config import settings
+
 
 __all__ = ["gather_eda_assets", "generate_eda_report"]
 
@@ -30,6 +33,7 @@ def gather_eda_assets(eda_dir: str | Path | None = None) -> Tuple[List[str], Lis
     return imgs, tables
 
 
+
 def _inline_png(path: Path, width: str = "420px") -> str:
     """Return an <img> tag embedding the PNG as base64."""
     with open(path, "rb") as fh:
@@ -52,7 +56,9 @@ def generate_eda_report(
     else:
         report_path = Path(report_path)
 
+
     imgs, tables = gather_eda_assets(eda_dir)
+
 
     html = f"""
     <html><head>

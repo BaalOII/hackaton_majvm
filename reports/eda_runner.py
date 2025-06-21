@@ -3,8 +3,10 @@ from pathlib import Path
 import pandas as pd
 from config import settings
 from data.loader import load_data
+
 from data.exploring import explore_the_df, eksplore_regression
 from .eda_report_generator import generate_eda_report
+
 
 
 def run_eda(eda_dir: str | Path | None = None) -> Path:
@@ -23,6 +25,7 @@ def run_eda(eda_dir: str | Path | None = None) -> Path:
         eksplore_regression(df, "target", eda_dir)
 
     generate_eda_report(eda_dir)
+
     return eda_dir
 
 

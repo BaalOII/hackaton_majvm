@@ -108,6 +108,7 @@ def generate_report(
     if eda_imgs or eda_tables:
         eda_html = "<h2>EDA</h2>" + "".join(eda_imgs) + "".join(eda_tables)
 
+
     # ---- assemble HTML --------------------------------------------
     html = f"""
     <html><head>
@@ -125,7 +126,9 @@ def generate_report(
         {metrics_html}
         <h2>Figures</h2>
         <table border="0">{''.join(fig_rows)}</table>
+
         {eda_html}
+
     </body></html>
     """
 
