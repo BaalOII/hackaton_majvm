@@ -50,11 +50,11 @@ def run_pipeline():
     all_records: list[dict] = []
 
     if "sklearn" in settings.engines:
-        print("→ Running Sklearn engine")
+        print("Running Sklearn engine")
         all_records.extend(run_sklearn(X_tr, X_te, y_tr, y_te))
 
     if "torch" in settings.engines:
-        print("→ Running Torch engine")
+        print("Running Torch engine")
         all_records.extend(run_torch(X_tr, X_te, y_tr, y_te))
 
     if not all_records:
@@ -62,12 +62,12 @@ def run_pipeline():
 
     
     fig_paths = make_all_figures(all_records, X_te, y_te)
-    print("✓ Plots written:", fig_paths)
+    print("Plots written:", fig_paths)
 
     metrics_df = pd.DataFrame(all_records)
     csv_path = Path(settings.plot_dir) / "combined_model_results.csv"
     metrics_df.to_csv(csv_path, index=False)
-    print(f"✓ Metrics saved to {csv_path.resolve()}")
+    print(f"Metrics saved to {csv_path.resolve()}")
 
     generate_report(metrics_df, fig_paths, report_path=Path(settings.plot_dir) / "report.html")
 
