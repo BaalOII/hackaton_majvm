@@ -5,7 +5,7 @@ from config import settings
 from data.loader import load_data
 
 from data.exploring import explore_the_df, eksplore_regression
-from .eda_report_generator import generate_eda_report
+from data.eda_report_generator import generate_eda_report
 
 
 

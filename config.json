@@ -68,7 +68,7 @@
   "torch_val_split": 0.2,
   "torch_cv_folds": 5,
 
-  "dataset_name": "iris",
+  "dataset_name": "breast_cancer",
   "csv_path": "data/example.csv",
   "parquet_path": "data/example.parquet",
   "url": "https://example.com/data.csv",
